@@ -1,0 +1,476 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./src/js/imagetracer_v1.2.6.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-face-aframe.prod.js"></script>
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@v0.149.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@v0.149.0/examples/jsm/"
+        }
+      }
+    </script>
+    <title>Hello OpenCV.js</title>
+
+    <script type="module">
+      import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+
+      export function exportSVG(svg) {
+        // let rect = cv.boundingRect(contour);
+        // let x = rect.x;
+        // let y = rect.y;
+        // let h = rect.height;
+        // let w = rect.width;
+
+        // var svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
+        // svg += '<path d="M';
+        // for (let i = 0; i < contour.rows; i++) {
+        //   let x1 = contour.data[i * 8];
+        //   let y1 = contour.data[i * 8 + 4];
+        //   svg += `${x1 - x} ${y1 - y} `;
+        // }
+        // svg += '"/>';
+        // svg += "</svg>";
+
+        const scene = new THREE.Scene();
+        // const renderer = new THREE.WebGLRenderer({
+        //   antialias: true,
+        //   alpha: true,
+        // });
+        // const camera = new THREE.PerspectiveCamera(
+        //   50,
+        //   window.innerWidth / window.innerHeight,
+        //   0.01,
+        //   1e5
+        // );
+        // const ambientLight = new THREE.AmbientLight("#888888");
+        // const pointLight = new THREE.PointLight("#ffffff", 2, 800);
+        // const controls = new OrbitControls(camera, renderer.domElement);
+        // const animate = () => {
+        //   renderer.render(scene, camera);
+        //   controls.update();
+
+        //   requestAnimationFrame(animate);
+        // };
+
+        // renderer.setSize(window.innerWidth, window.innerHeight);
+        // scene.add(ambientLight, pointLight);
+        // camera.position.z = 200;
+        // camera.position.x = 200;
+        // camera.position.y = 200;
+        // controls.enablePan = false;
+
+        // document.body.appendChild(renderer.domElement);
+        // window.addEventListener("resize", () => {
+        //   camera.aspect = window.innerWidth / window.innerHeight;
+        //   camera.updateProjectionMatrix();
+        //   renderer.setSize(window.innerWidth, window.innerHeight);
+        // });
+        // animate();
+
+        const loader = new SVGLoader();
+        const svgData = loader.parse(svg);
+
+        // Group that will contain all of our paths
+        const svgGroup = new THREE.Group();
+
+        let renderOrder = 0;
+        // Loop through all of the parsed paths
+        svgData.paths.forEach((path, i) => {
+          if (path.userData.style.opacity === 0) return;
+          const fillColor = path.userData.style.fill;
+
+          const material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setStyle(fillColor),
+            opacity: path.userData.style.fillOpacity,
+            transparent: false,
+            side: THREE.DoubleSide,
+            wireframe: false,
+          });
+
+          const shapes = SVGLoader.createShapes(path);
+          shapes.forEach((shape, j) => {
+            const meshGeometry = new THREE.ExtrudeGeometry(shape, {
+              steps: 2,
+              depth: 16,
+              bevelEnabled: true,
+              bevelThickness: 1,
+              bevelSize: 1,
+              bevelOffset: 0,
+              bevelSegments: 1,
+            });
+            const mesh = new THREE.Mesh(meshGeometry, material);
+            mesh.renderOrder = renderOrder++;
+
+            svgGroup.add(mesh);
+          });
+        });
+
+        const box = new THREE.Box3().setFromObject(svgGroup);
+        const size = box.getSize(new THREE.Vector3());
+        const yOffset = size.y / -2;
+        const xOffset = size.x / -2;
+
+        // Offset all of group's elements, to center them
+        svgGroup.children.forEach((item) => {
+          item.position.x = xOffset;
+          item.position.y = yOffset;
+        });
+        svgGroup.rotateX(-Math.PI);
+
+        // Add our group to the scene (you'll need to create a scene)
+        scene.add(svgGroup);
+
+        const exporter = new GLTFExporter();
+        const options = { binary: true };
+        exporter.parse(
+          scene,
+          // called when the gltf has been generated
+          function (result) {
+            if (result instanceof ArrayBuffer) {
+              const text = result;
+              const filename = "scene.glb";
+              const blob = new Blob([text], {
+                type: "text/plain",
+              });
+              const url = URL.createObjectURL(blob);
+              const entity = document.querySelector("#entity");
+              entity.removeAttribute("gltf-model");
+              entity.setAttribute("gltf-model", `url(${url})`);
+              // const link = document.createElement("a");
+              // link.style.display = "none";
+              // document.body.appendChild(link);
+              // link.href = URL.createObjectURL(blob);
+              // link.download = filename;
+              // link.click();
+            }
+          },
+          // called when there is an error in the generation
+          function (error) {
+            console.log("An error happened");
+          },
+          options
+        );
+      }
+
+      window.exportSVG = exportSVG;
+    </script>
+
+    <script type="text/javascript">
+      function onOpenCvReady() {
+        cv["onRuntimeInitialized"] = () => {
+          document.getElementById("status").innerHTML = "OpenCV.js is ready.";
+
+          let inputElement = document.getElementById("fileInput");
+          inputElement.addEventListener(
+            "change",
+            (e) => {
+              imgElement.src = URL.createObjectURL(e.target.files[0]);
+            },
+            false
+          );
+
+          let imgElement = document.getElementById("imageSrc");
+          imgElement.crossOrigin = "Anonymous";
+          imgElement.onload = process;
+        };
+      }
+
+      function process() {
+        let imgElement = document.getElementById("imageSrc");
+        let src = cv.imread(imgElement);
+
+        let maxWidth = 512;
+        let maxHeight = 512;
+        let ratio = 0;
+        let srcWidth = src.size().width;
+        let srcHeight = src.size().height;
+
+        if (srcWidth > srcHeight) {
+          ratio = maxWidth / srcWidth;
+          srcHeight = srcHeight * ratio;
+          srcWidth = srcWidth * ratio;
+        } else {
+          ratio = maxHeight / srcHeight;
+          srcWidth = srcWidth * ratio;
+          srcHeight = srcHeight * ratio;
+        }
+        cv.resize(
+          src,
+          src,
+          new cv.Size(srcWidth, srcHeight),
+          0,
+          0,
+          cv.INTER_AREA
+        );
+
+        console.log(
+          "图像 width: " +
+            src.cols +
+            "\n" +
+            "图像 height: " +
+            src.rows +
+            "\n" +
+            "图像 size: " +
+            src.size().width +
+            "*" +
+            src.size().height +
+            "\n" +
+            "图像 depth: " +
+            src.depth() +
+            "\n" +
+            "图像 channels " +
+            src.channels() +
+            "\n" +
+            "图像 type: " +
+            src.type() +
+            "\n"
+        );
+
+        let temp = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        cv.cvtColor(src, temp, cv.COLOR_BGR2GRAY);
+        cv.GaussianBlur(temp, temp, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+        cv.Canny(temp, temp, 0, 255, 3);
+
+        // let grad_x = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        // let grad_y = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        // let gradx = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        // let grady = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        // cv.Scharr(src, grad_x, cv.CV_64F, 1, 0);
+        // cv.Scharr(src, grad_y, cv.CV_64F, 0, 1);
+        // cv.convertScaleAbs(grad_x, gradx);
+        // cv.convertScaleAbs(grad_y, grady);
+        // cv.addWeighted(gradx, 0.5, grady, 0.5, 0, temp);
+
+        // cv.GaussianBlur(temp, temp, new cv.Size(3, 3), 0);
+        // cv.cvtColor(temp, temp, cv.COLOR_BGR2GRAY);
+        // cv.threshold(temp, temp, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+        // cv.blur(temp, temp, new cv.Size(3, 3));
+        // cv.GaussianBlur(temp, temp, new cv.Size(3, 3), 0);
+
+        let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(4, 4));
+        cv.morphologyEx(temp, temp, cv.MORPH_CLOSE, kernel);
+        cv.threshold(temp, temp, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(
+          temp,
+          contours,
+          hierarchy,
+          cv.RETR_CCOMP,
+          cv.CHAIN_APPROX_NONE
+        );
+
+        let dst = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        for (let i = 0; i < contours.size(); ++i) {
+          let color = new cv.Scalar(
+            Math.round(Math.random() * 255),
+            Math.round(Math.random() * 255),
+            Math.round(Math.random() * 255)
+          );
+          // let color = new cv.Scalar(255,255,255)
+          cv.drawContours(
+            dst,
+            contours,
+            i,
+            color,
+            1,
+            cv.LINE_8,
+            hierarchy,
+            100
+          );
+        }
+        console.log("canvasContours");
+        // cv.imshow("canvasContours", dst);
+
+        let area = [];
+        for (let i = 0; i < contours.size(); ++i) {
+          let item = cv.contourArea(contours.get(i));
+          area.push(item);
+        }
+        let max_area = Math.max(...area);
+        let outter = area.indexOf(max_area);
+        let contour = contours.get(outter);
+
+        let mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        cv.drawContours(
+          mask,
+          contours,
+          outter,
+          new cv.Scalar(255, 255, 255),
+          cv.FILLED
+        );
+        console.log("canvasMask");
+        // cv.imshow("canvasMask", mask);
+
+        let img = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+        cv.cvtColor(src, img, cv.COLOR_BGR2BGRA);
+        let height = img.size().height;
+        let width = img.size().width;
+        for (let i = 0; i < height; ++i) {
+          for (let j = 0; j < width; ++j) {
+            let index = i * width + j;
+            img.data[index * 4 + 3] = mask.data[index * 3 + 3];
+          }
+        }
+        let rect = cv.boundingRect(contour);
+        let x = rect.x;
+        let y = rect.y;
+        let h = rect.height;
+        let w = rect.width;
+        let result = cv.Mat.zeros(h, w, cv.CV_8UC4);
+        for (let i = 0; i < h; ++i) {
+          for (let j = 0; j < w; ++j) {
+            let index_result = i * w + j;
+            let index_img = (i + y) * width + (j + x);
+            result.data[index_result * 4] = img.data[index_img * 4];
+            result.data[index_result * 4 + 1] = img.data[index_img * 4 + 1];
+            result.data[index_result * 4 + 2] = img.data[index_img * 4 + 2];
+            result.data[index_result * 4 + 3] = img.data[index_img * 4 + 3];
+          }
+        }
+        console.log("canvasResult");
+        cv.imshow("canvasResult", result);
+        temp.delete();
+        dst.delete();
+        contours.delete();
+        hierarchy.delete();
+        img.delete();
+        src.delete();
+        result.delete();
+
+        // Export SVG
+        let canvas = document.getElementById("canvasResult");
+        var imgd = ImageTracer.getImgdata(canvas);
+        let svgstr = ImageTracer.imagedataToSVG(imgd, "detailed");
+        exportSVG(svgstr);
+
+        // 　Save image
+        // const canvas = document.getElementById("canvasResult");
+        // const image = document.getElementById("face-image");
+        // image.setAttribute(
+        //   "face-image",
+        //   `width: ${w}; height: ${h}; src: ${encodeURIComponent(
+        //     canvas.toDataURL("image/png")
+        //   )}`
+        // );
+      }
+    </script>
+
+    <script>
+      AFRAME.registerComponent("face-image", {
+        schema: {
+          maxWidth: { default: 1.5 },
+          width: { default: 0 },
+          height: { default: 0 },
+          src: { default: "" },
+        },
+        init: function () {
+          let data = this.data;
+          this.el.setAttribute("width", data.width);
+          this.el.setAttribute("height", data.height);
+        },
+        update: function () {
+          let data = this.data;
+          if (data.src) {
+            let ratio = data.maxWidth / data.width;
+            this.el.setAttribute("width", data.width * ratio);
+            this.el.setAttribute("height", data.height * ratio);
+            this.el.setAttribute("src", decodeURIComponent(data.src));
+          }
+        },
+      });
+    </script>
+
+    <script
+      async
+      src="./src/js/opencv.js"
+      onload="onOpenCvReady();"
+      type="text/javascript"
+    ></script>
+    <style>
+      body {
+        margin: 0;
+      }
+      .example-container {
+        overflow: hidden;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body style="background-color: lightgray">
+    <h2>Hello OpenCV.js</h2>
+    <p id="status">OpenCV.js is loading...</p>
+    <div>
+      <div class="caption">
+        <input type="file" id="fileInput" name="file" />
+      </div>
+      <div
+        style="
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr;
+          padding: 16px;
+        "
+      >
+        <div class="inputoutput" style="display: none">
+          <div class="caption">Source</div>
+          <img id="imageSrc" src="" alt="No Image" style="width: 100%" />
+        </div>
+        <div class="inputoutput" style="display: none">
+          <div class="caption">Contours</div>
+          <canvas id="canvasContours" style="width: 100%"></canvas>
+        </div>
+        <div class="inputoutput" style="display: none">
+          <div class="caption">Mask</div>
+          <canvas id="canvasMask" style="width: 100%"></canvas>
+        </div>
+        <div class="inputoutput" style="display: none">
+          <div class="caption">Result</div>
+          <canvas id="canvasResult" style="width: 100%"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="example-container">
+      <a-scene
+        mindar-face
+        embedded
+        color-space="sRGB"
+        renderer="colorManagement: true, physicallyCorrectLights"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
+        ><a-assets>
+          <a-asset-item id="model" src="scene.glb"></a-asset-item>
+        </a-assets>
+        <a-camera active="false" position="0 0 0"></a-camera>
+        <a-entity mindar-face-target="anchorIndex: 168">
+          <!-- <a-image face-image id="face-image" position="0 0 0.2"></a-image> -->
+          <!-- <a-gltf-model
+            rotation="0 0 0"
+            position="0 0 0.2"
+            scale="0.01 0.01 0.01"
+            src="#model"
+          ></a-gltf-model> -->
+          <a-entity
+            id="entity"
+            position="0 0 0.2"
+            scale="0.005 0.005 0.005"
+          ></a-entity>
+        </a-entity>
+      </a-scene>
+    </div>
+  </body>
+</html>
