@@ -132,28 +132,33 @@
         scene.add(svgGroup);
 
         const exporter = new GLTFExporter();
-        const options = { binary: true };
+        const options = { binary: false };
         exporter.parse(
           scene,
           // called when the gltf has been generated
           function (result) {
+            var text;
+            var filename;
             if (result instanceof ArrayBuffer) {
-              const text = result;
-              const filename = "scene.glb";
-              const blob = new Blob([text], {
-                type: "text/plain",
-              });
-              const url = URL.createObjectURL(blob);
-              const entity = document.querySelector("#entity");
-              entity.removeAttribute("gltf-model");
-              entity.setAttribute("gltf-model", `url(${url})`);
-              // const link = document.createElement("a");
-              // link.style.display = "none";
-              // document.body.appendChild(link);
-              // link.href = URL.createObjectURL(blob);
-              // link.download = filename;
-              // link.click();
+              text = result;
+              filename = "screen.glb";
+            } else {
+              text = JSON.stringify(result);
+              filename = "screen.gltf";
             }
+            const blob = new Blob([text], {
+              type: "text/plain",
+            });
+            const url = URL.createObjectURL(blob);
+            const entity = document.querySelector("#entity");
+            entity.removeAttribute("gltf-model");
+            entity.setAttribute("gltf-model", `url(${url})`);
+            // const link = document.createElement("a");
+            // link.style.display = "none";
+            // document.body.appendChild(link);
+            // link.href = URL.createObjectURL(blob);
+            // link.download = filename;
+            // link.click();
           },
           // called when there is an error in the generation
           function (error) {
