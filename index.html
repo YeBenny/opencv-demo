@@ -357,20 +357,20 @@
         result.delete();
 
         // Export SVG
-        let canvas = document.getElementById("canvasResult");
-        var imgd = ImageTracer.getImgdata(canvas);
-        let svgstr = ImageTracer.imagedataToSVG(imgd, "detailed");
-        exportSVG(svgstr);
+        // let canvas = document.getElementById("canvasResult");
+        // var imgd = ImageTracer.getImgdata(canvas);
+        // let svgstr = ImageTracer.imagedataToSVG(imgd, "detailed");
+        // exportSVG(svgstr);
 
         // 　Save image
-        // const canvas = document.getElementById("canvasResult");
-        // const image = document.getElementById("face-image");
-        // image.setAttribute(
-        //   "face-image",
-        //   `width: ${w}; height: ${h}; src: ${encodeURIComponent(
-        //     canvas.toDataURL("image/png")
-        //   )}`
-        // );
+        const canvas = document.getElementById("canvasResult");
+        const image = document.getElementById("face-image");
+        image.setAttribute(
+          "face-image",
+          `width: ${w}; height: ${h}; src: ${encodeURIComponent(
+            canvas.toDataURL("image/png")
+          )}`
+        );
       }
     </script>
 
